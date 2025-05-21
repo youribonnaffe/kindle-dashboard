@@ -7,8 +7,6 @@ LOG="/dev/null"
 FBINK="fbink -q"
 FONT="regular=/usr/java/lib/fonts/Futura-Medium.ttf"
 CITY="Rangiora"
-COND="---"
-TEMP="---"
 
 # Hardware specific settings
 FBROTATE="echo -n 0 > /sys/devices/platform/imx_epdc_fb/graphics/fb0/rotate"
@@ -29,31 +27,19 @@ clear_screen(){
 echo "`date '+%Y-%m-%d_%H:%M:%S'`: ------------- Startup ------------" >> $LOG
 
 ### No way of running this if wifi is down.
-# if [ `lipc-get-prop com.lab126.wifid cmState` != "CONNECTED" ]; then
-# 	exit 1
-#fi
+if [ `lipc-get-prop com.lab126.wifid cmState` != "CONNECTED" ]; then
+	exit 1
+fi
 
 $FBINK -w -c -f -m -t $FONT,size=20,top=410,bottom=0,left=0,right=0 "Starting Weather..." > /dev/null 2>&1
 
 
 ### stop processes that we don't need
-#K4
-#/etc/init.d/framework stop
-#/etc/init.d/pmond stop
-#/etc/init.d/phd stop
-#/etc/init.d/cmd stop
-#/etc/initd./tmd stop
-#/etc/init.d/browserd stop
-#/etc/init.d/webreaderd stop
-#/etc/init.d/lipc-daemon stop
-#/etc/init.d/powerd stop
-
-#PW2/3
-#stop lab126_gui
+stop lab126_gui
 # stop otaupd
 #stop phd
 #stop tmd
-#stop x
+stop x
 #stop todo
 # stop mcsd
 # stop archive
@@ -163,7 +149,7 @@ update_weather(){
     # 9am next day
     N24_INDEX=3
 
-    WEATHER_DATA=$(curl -s https://wttr.in/Rangiora?format=j1)
+    WEATHER_DATA=$(curl -s https://wttr.in/$CITY?format=j1)
 
     WEATHER_PARSED=$(echo "$WEATHER_DATA" | jq -r "[ \
     .current_condition[0].temp_C, \
@@ -264,7 +250,7 @@ update_weather(){
     done
 }
 
-clock (){
+run (){
     update_weather
     while true; do
 
@@ -323,7 +309,6 @@ clock (){
         ### Disable WIFI
         lipc-set-prop com.lab126.cmd wirelessEnable 0
 
-        #BAT=$(gasgauge-info -s)
         BAT=$(cat $BATTERY)
         TIME=$(date '+%H:%M')
         DATE=$(date '+%A, %-d. %B %Y')
@@ -339,8 +324,6 @@ clock (){
         fbink -w -s
 
         ### Set Wakeuptimer
-        #echo 0 > /sys/class/rtc/rtc1/wakealarm
-        #echo ${WAKEUP_TIME} > /sys/class/rtc/rtc1/wakealarm
         NOW=$(date +%s)
         let WAKEUP_TIME="((($NOW + 59)/60)*60)" # Hack to get next minute
         let SLEEP_SECS=$WAKEUP_TIME-$NOW
@@ -350,31 +333,36 @@ clock (){
         if [ $SLEEP_SECS -lt 5 ]; then
             let SLEEP_SECS=$SLEEP_SECS+60
         fi
-        #rtcwake -d /dev/rtc1 -m no -s $SLEEP_SECS
+        rtcwake -d /dev/rtc1 -m no -s $SLEEP_SECS
         echo "`date '+%Y-%m-%d_%H:%M:%S'`: Going to sleep for $SLEEP_SECS" >> $LOG
         
-        sleep $SLEEP_SECS
+        #sleep $SLEEP_SECS
         ### Go into Suspend to Memory (STR)
-        #echo "mem" > /sys/power/state
-    #    exit
+        echo "mem" > /sys/power/state
     done
-
 }
 
-clock
-CLOCK_PID=$!
+# Various attempts at exiting via the power button
+quit(){
+    clear_screen
+    $FBINK -w -c -f -m -t $FONT,size=20,top=410,bottom=0,left=0,right=0 "Bye bye..." > /dev/null 2>&1
+    start x
+    start lab126_gui
+    lipc-set-prop com.lab126.powerd preventScreenSaver 0
+    echo ondemand >/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+}
+
+trap quit EXIT
+
+run &
+RUN_PID=$!
 
 # Exit by pressing physical button
 while true; do
     key=$(waitforkey)
     if [ "$key" = "116 1" ]; then
-        kill $CLOCK_PID
-        clear_screen
-        $FBINK -w -c -f -m -t $FONT,size=20,top=410,bottom=0,left=0,right=0 "Bye bye..." > /dev/null 2>&1
-        start x
-        start lab126_gui
-        lipc-set-prop com.lab126.powerd preventScreenSaver 0
-        echo ondemand >/sys/devices/system/cpu/cpu0/cpufreq/scaling_governor
+        quit
+        kill $RUN_PID
         kill -- -$$
     fi
 done

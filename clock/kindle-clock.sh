@@ -22,7 +22,7 @@ wait_for_wifi() {
 
 ### Updates weather info
 update_weather() {
-    curl -s -f -m 5 'https://wttr.in/Rangiora.png?2FTQI&background=FFFFFF' -o weather.png
+    curl -s -f -m 5 https://wttr.in/Rangiora.png?2FTQ -o weather.png
     RC=$?
     echo "`date '+%Y-%m-%d_%H:%M:%S'`: Got weather data. ($WEATHER, RC=$RC)" >> $LOG
     if [ ! -z "$WEATHER" ]; then
@@ -159,7 +159,7 @@ clock (){
         # convert to centigrade
         let INSIDE_TEMP_C="($INSIDE_TEMP_C-32)*5/9"
 
-        ## adjust coordinates according to display resolution. This is for PW2.     
+        ## adjust coordinates according to display resolution. This is for PW2.
         $FBINK -b -c -m -t $FONT,size=150,top=10,bottom=0,left=0,right=0 "$TIME"
         #$FBINK -b -m --image file=/mnt/us/extensions/kindle-clock/weather.png,dither,w=184,h=250,x=840,y=490
         $FBINK -b -m -t $FONT,size=20,top=410,bottom=0,left=0,right=0 "$DATE"
@@ -171,8 +171,7 @@ clock (){
         fi
         #$FBINK -b -m --image file=/mnt/us/extensions/kindle-clock/pika.jpg,dither,w=184,h=250,x=840,y=490
         $FBINK -b -m --image file=weather.png,dither,w=184,h=250,x=840,y=490
-        # -m --image file=weather.png,w=1020,h=557,x=0,y=200
-        
+
         ### update framebuffer
         $FBINK -w -s
 
@@ -202,8 +201,6 @@ clock (){
 
 clock
 CLOCK_PID=$!
-
-exit 
 
 # Exit by pressing physical button
 while true; do
